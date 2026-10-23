@@ -1,0 +1,217 @@
+
+== rep=1 n=1024
+0.000000121
+# started on Fri Oct 23 15:13:02 2026
+
+16999561,,cycles,7444818,100.00,,
+42137144,,instructions,7444818,100.00,2.48,insn per cycle
+68961,,cache-misses,7444818,100.00,,
+4785,,LLC-load-misses,7444818,100.00,,
+1605,,dTLB-load-misses,7444818,100.00,,
+== rep=1 n=4096
+0.000000500
+# started on Fri Oct 23 15:13:02 2026
+
+17234624,,cycles,7525131,100.00,,
+40640269,,instructions,7525131,100.00,2.36,insn per cycle
+38770,,cache-misses,7525131,100.00,,
+3753,,LLC-load-misses,7525131,100.00,,
+1651,,dTLB-load-misses,7525131,100.00,,
+== rep=1 n=16384
+0.000002811
+# started on Fri Oct 23 15:13:02 2026
+
+23319692,,cycles,10194455,100.00,,
+40517355,,instructions,10194455,100.00,1.74,insn per cycle
+47985,,cache-misses,10194455,100.00,,
+3658,,LLC-load-misses,10194455,100.00,,
+1804,,dTLB-load-misses,10194455,100.00,,
+== rep=1 n=65536
+0.000016607
+# started on Fri Oct 23 15:13:02 2026
+
+34112092,,cycles,14904645,100.00,,
+41843456,,instructions,14904645,100.00,1.23,insn per cycle
+61358,,cache-misses,14904645,100.00,,
+4897,,LLC-load-misses,14904645,100.00,,
+2328,,dTLB-load-misses,14904645,100.00,,
+== rep=1 n=262144
+0.000070104
+# started on Fri Oct 23 15:13:02 2026
+
+40833845,,cycles,17884373,100.00,,
+46916426,,instructions,17884373,100.00,1.15,insn per cycle
+354626,,cache-misses,17884373,100.00,,
+76252,,LLC-load-misses,17884373,100.00,,
+3870,,dTLB-load-misses,17884373,100.00,,
+== rep=1 n=1048576
+0.000495633
+# started on Fri Oct 23 15:13:02 2026
+
+85067221,,cycles,37139376,100.00,,
+66906982,,instructions,37139376,100.00,0.79,insn per cycle
+5723945,,cache-misses,37139376,100.00,,
+1106947,,LLC-load-misses,37139376,100.00,,
+70110,,dTLB-load-misses,37139376,100.00,,
+== rep=1 n=4194304
+0.002208462
+# started on Fri Oct 23 15:13:02 2026
+
+170347599,,cycles,74287711,100.00,,
+144996092,,instructions,74287711,100.00,0.85,insn per cycle
+8044121,,cache-misses,74287711,100.00,,
+1303448,,LLC-load-misses,74287711,100.00,,
+94081,,dTLB-load-misses,74287711,100.00,,
+== rep=1 n=16777216
+0.009050750
+# started on Fri Oct 23 15:13:02 2026
+
+491187692,,cycles,214164785,100.00,,
+458342407,,instructions,214164785,100.00,0.93,insn per cycle
+12978237,,cache-misses,214164785,100.00,,
+1683113,,LLC-load-misses,214164785,100.00,,
+184075,,dTLB-load-misses,214164785,100.00,,
+== rep=2 n=1024
+0.000000122
+# started on Fri Oct 23 15:13:02 2026
+
+16903863,,cycles,7399293,100.00,,
+42177937,,instructions,7399293,100.00,2.50,insn per cycle
+39415,,cache-misses,7399293,100.00,,
+3690,,LLC-load-misses,7399293,100.00,,
+1679,,dTLB-load-misses,7399293,100.00,,
+== rep=2 n=4096
+0.000000504
+# started on Fri Oct 23 15:13:02 2026
+
+17280967,,cycles,7600621,100.00,,
+40682334,,instructions,7600621,100.00,2.35,insn per cycle
+41655,,cache-misses,7600621,100.00,,
+3826,,LLC-load-misses,7600621,100.00,,
+1711,,dTLB-load-misses,7600621,100.00,,
+== rep=2 n=16384
+0.000002721
+# started on Fri Oct 23 15:13:02 2026
+
+22632697,,cycles,9879425,100.00,,
+40535196,,instructions,9879425,100.00,1.79,insn per cycle
+45693,,cache-misses,9879425,100.00,,
+3394,,LLC-load-misses,9879425,100.00,,
+1784,,dTLB-load-misses,9879425,100.00,,
+== rep=2 n=65536
+0.000016651
+# started on Fri Oct 23 15:13:02 2026
+
+34046835,,cycles,14869670,100.00,,
+41739099,,instructions,14869670,100.00,1.23,insn per cycle
+58887,,cache-misses,14869670,100.00,,
+4430,,LLC-load-misses,14869670,100.00,,
+2300,,dTLB-load-misses,14869670,100.00,,
+== rep=2 n=262144
+0.000067208
+# started on Fri Oct 23 15:13:02 2026
+
+39073985,,cycles,17078055,100.00,,
+46577835,,instructions,17078055,100.00,1.19,insn per cycle
+157652,,cache-misses,17078055,100.00,,
+16822,,LLC-load-misses,17078055,100.00,,
+3523,,dTLB-load-misses,17078055,100.00,,
+== rep=2 n=1048576
+0.000508102
+# started on Fri Oct 23 15:13:03 2026
+
+85357354,,cycles,37234187,100.00,,
+66198711,,instructions,37234187,100.00,0.78,insn per cycle
+6064461,,cache-misses,37234187,100.00,,
+1104083,,LLC-load-misses,37234187,100.00,,
+70639,,dTLB-load-misses,37234187,100.00,,
+== rep=2 n=4194304
+0.002274923
+# started on Fri Oct 23 15:13:03 2026
+
+171219910,,cycles,74667882,100.00,,
+143287894,,instructions,74667882,100.00,0.84,insn per cycle
+8048258,,cache-misses,74667882,100.00,,
+1295696,,LLC-load-misses,74667882,100.00,,
+94097,,dTLB-load-misses,74667882,100.00,,
+== rep=2 n=16777216
+0.009098000
+# started on Fri Oct 23 15:13:03 2026
+
+489068170,,cycles,213245413,100.00,,
+451888043,,instructions,213245413,100.00,0.92,insn per cycle
+12929789,,cache-misses,213245413,100.00,,
+1668490,,LLC-load-misses,213245413,100.00,,
+184926,,dTLB-load-misses,213245413,100.00,,
+== rep=3 n=1024
+0.000000121
+# started on Fri Oct 23 15:13:03 2026
+
+16966784,,cycles,7433462,100.00,,
+42222854,,instructions,7433462,100.00,2.49,insn per cycle
+44907,,cache-misses,7433462,100.00,,
+3702,,LLC-load-misses,7433462,100.00,,
+1718,,dTLB-load-misses,7433462,100.00,,
+== rep=3 n=4096
+0.000000502
+# started on Fri Oct 23 15:13:03 2026
+
+17369542,,cycles,7593171,100.00,,
+40692216,,instructions,7593171,100.00,2.34,insn per cycle
+46678,,cache-misses,7593171,100.00,,
+3560,,LLC-load-misses,7593171,100.00,,
+1761,,dTLB-load-misses,7593171,100.00,,
+== rep=3 n=16384
+0.000002876
+# started on Fri Oct 23 15:13:03 2026
+
+23575243,,cycles,10319466,100.00,,
+40548097,,instructions,10319466,100.00,1.72,insn per cycle
+46658,,cache-misses,10319466,100.00,,
+3416,,LLC-load-misses,10319466,100.00,,
+1795,,dTLB-load-misses,10319466,100.00,,
+== rep=3 n=65536
+0.000016339
+# started on Fri Oct 23 15:13:03 2026
+
+33429381,,cycles,14575888,100.00,,
+41724777,,instructions,14575888,100.00,1.25,insn per cycle
+55598,,cache-misses,14575888,100.00,,
+4065,,LLC-load-misses,14575888,100.00,,
+2189,,dTLB-load-misses,14575888,100.00,,
+== rep=3 n=262144
+0.000068089
+# started on Fri Oct 23 15:13:03 2026
+
+39591557,,cycles,17343781,100.00,,
+46600373,,instructions,17343781,100.00,1.18,insn per cycle
+204795,,cache-misses,17343781,100.00,,
+32558,,LLC-load-misses,17343781,100.00,,
+3596,,dTLB-load-misses,17343781,100.00,,
+== rep=3 n=1048576
+0.000502286
+# started on Fri Oct 23 15:13:03 2026
+
+84709644,,cycles,36988628,100.00,,
+66202416,,instructions,36988628,100.00,0.78,insn per cycle
+5791520,,cache-misses,36988628,100.00,,
+1097616,,LLC-load-misses,36988628,100.00,,
+70543,,dTLB-load-misses,36988628,100.00,,
+== rep=3 n=4194304
+0.002233769
+# started on Fri Oct 23 15:13:03 2026
+
+170056386,,cycles,74146270,100.00,,
+143275002,,instructions,74146270,100.00,0.84,insn per cycle
+8081539,,cache-misses,74146270,100.00,,
+1307688,,LLC-load-misses,74146270,100.00,,
+94236,,dTLB-load-misses,74146270,100.00,,
+== rep=3 n=16777216
+0.009053000
+# started on Fri Oct 23 15:13:03 2026
+
+488843850,,cycles,213121453,100.00,,
+452967829,,instructions,213121453,100.00,0.93,insn per cycle
+12937921,,cache-misses,213121453,100.00,,
+1681443,,LLC-load-misses,213121453,100.00,,
+184279,,dTLB-load-misses,213121453,100.00,,

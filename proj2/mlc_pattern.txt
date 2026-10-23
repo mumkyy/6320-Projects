@@ -1,0 +1,20 @@
+== random
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b100000 -r 
+
+Using buffer size of 97.656MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 238.7 base frequency clocks (	103.6	ns)
+
+== sequential, prefetchers ON
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b100000 -e 
+
+Using buffer size of 97.656MiB
+*** -e leaves the hardware prefetchers as they are, and this run uses a
+*** sequential access pattern. If the prefetchers are enabled, the reported
+*** latency will be a prefetched cache hit rather than a memory latency.
+*** Add -r to use a random access pattern if that is not what you want.
+Each iteration took 17.5 base frequency clocks (	7.6	ns)
+

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project 1: SIMD Advantage Profiling</title>
+<!-- Images are the PNGs in this folder (made by analyze.py); keep this file next to them. -->
+<style>
+  :root { --ink: #1d1f23; --muted: #5d6470; --line: #d9dde3; --soft: #f4f6f8; --accent: #2d5b9a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 16px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 940px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 24px; }
+  header h1 { margin: 0 0 4px; font-size: 2rem; line-height: 1.2; }
+  header p { margin: 0; color: var(--muted); }
+  h2 { font-size: 1.4rem; margin: 48px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.12rem; margin: 32px 0 8px; }
+  .pts { display: inline-block; font-size: 0.8rem; color: var(--accent); background: #e8eff8; border-radius: 12px; padding: 2px 10px; margin-bottom: 12px; }
+  figure { margin: 16px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; break-inside: avoid; }
+  figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid2 figure { margin: 0; }
+  ul.facts { background: var(--soft); border-radius: 8px; padding: 12px 16px 12px 36px; margin: 12px 0; }
+  ul.facts li { margin: 2px 0; }
+  .table-wrap { overflow-x: auto; margin: 12px 0; }
+  table { border-collapse: collapse; font-size: 0.93rem; min-width: 60%; }
+  th, td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  pre { background: #f6f8fa; border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 0.85rem; line-height: 1.45; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+  p code, li code, td code { background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  .fill { background: #fff8db; border: 1px dashed #d9a400; border-radius: 8px; padding: 10px 16px; margin: 16px 0; }
+  .fill .hint { color: #7a5c00; font-size: 0.92rem; margin: 0 0 6px; }
+  .fill .hint ul { margin: 4px 0; padding-left: 20px; }
+  .analysis { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; margin: 16px 0; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } header h1 { font-size: 1.6rem; } }
+  @media print { .fill .hint { display: none; } .fill { background: none; border: none; padding: 0; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Project 1: SIMD Advantage Profiling</h1>
+  <p>ECSE 4320/6320 Advanced Computer Systems · Intel Core i3-6100U · gcc 14.2</p>
+</header>
+
+<section id="setup">
+  <h2>1. Setup and methodology</h2>
+  <span class="pts">15 pts · Baseline, correctness, reproducibility</span>
+  <div class="table-wrap"><table>
+    <tr><th>CPU</th><td>Intel Core i3-6100U @ 2.3 GHz (Skylake, no turbo), 2 cores / 4 threads, AVX2 + FMA, no AVX-512</td></tr>
+    <tr><th>Caches (per core)</th><td>L1d 32 KiB, L2 256 KiB, L3 3 MiB (unified), from <code>/sys/devices/system/cpu/cpu0/cache/</code></td></tr>
+    <tr><th>OS / compiler</th><td>Ubuntu, Linux 6.11.0-29-generic; gcc 14.2.0</td></tr>
+    <tr><th>Frequency / SMT</th><td>Governor <code>powersave</code>; SMT on</td></tr>
+    <tr><th>Builds</th><td>scalar: <code>-O3 -fno-tree-vectorize</code><br>auto: <code>-O3</code> (SSE, 128-bit)<br>native: <code>-O3 -march=native</code> (AVX2/FMA, 256-bit)</td></tr>
+    <tr><th>Timing</th><td><code>clock()</code> around <code>trials</code> calls, trials = 2×10⁸ / n + 5; 3 reps (mean ± std); pinned to core 2 with <code>taskset</code></td></tr>
+    <tr><th>Data</th><td><code>i % 10 + 1</code>; arrays 64-byte aligned (<code>aligned_alloc</code>)</td></tr>
+    <tr><th>Kernels</th><td>AXPY <code>y = a*x + y</code>, dot <code>s += x*y</code>, elementwise multiply <code>z = x*y</code>; float32 and float64</td></tr>
+  </table></div>
+</section>
+
+<section id="hypothesis">
+  <h2>2. Hypothesis</h2>
+  <ul>
+    <li>Native vectorization will usually perform better than auto vectorization, because it parallelizes more aggressively and performs more operations at once</li>
+    <li>Native and auto vectorization will always perform better than no vectorization, for the same reason: they perform more operations at once</li>
+    <li>As the number of elements increases, the performance gain will go down, because memory limits the speedup</li>
+    <li>Unalignment → worse performance in all cases, because it makes the vectorization inefficient, and then similar memory limits apply</li>
+    <li>The effect should be the same for both float32 and float64, because the general trend should be the same; float64 may be slower overall since each element is bigger</li>
+  </ul>
+</section>
+
+<section id="correctness">
+  <h2>3. Correctness</h2>
+  <span class="pts">15 pts · Baseline, correctness, reproducibility</span>
+  <p>Every kernel run at n = 4103 (not a multiple of 8, so the tail code runs) in all three builds; scalar is the reference (<code>correctness.txt</code>).</p>
+  <div class="table-wrap"><table>
+    <tr><th>Kernel</th><th class="num">Scalar</th><th>Auto</th><th>Native</th></tr>
+    <tr><td>AXPY float</td><td class="num">15,014,266,064</td><td>identical</td><td>identical</td></tr>
+    <tr><td>AXPY double</td><td class="num">15,014,266,064</td><td>identical</td><td>identical</td></tr>
+    <tr><td>Dot float</td><td class="num">105,080,995,840</td><td>identical</td><td>identical</td></tr>
+    <tr><td>Dot double</td><td class="num">105,081,224,416</td><td>identical</td><td>identical</td></tr>
+    <tr><td>Mul float</td><td class="num">105,081,224,416</td><td>identical</td><td>identical</td></tr>
+    <tr><td>Mul double</td><td class="num">105,081,224,416</td><td>identical</td><td>identical</td></tr>
+  </table></div>
+  <div class="analysis">
+    <p>The important result is that every kernel gives the same output in the scalar, auto and native builds. The speedups in the rest of this report are therefore pure performance gains, not bought with any loss of accuracy.</p>
+    <p>The one difference is between dot float and dot double. This could be due to rounding; however, it's peculiar that it didn't happen to any of the other kernels.</p>
+  </div>
+</section>
+
+<section id="verify">
+  <h2>4. Vectorization verification</h2>
+  <span class="pts">15 pts · Vectorization verification</span>
+  <p>Compiler report and key instructions (<code>verify.txt</code>):</p>
+<pre><code>simd.c:27:23: optimized: loop vectorized using 32 byte vectors     (native, AXPY)
+simd.c:27:23: optimized: loop vectorized using 16 byte vectors     (auto, AXPY)
+
+scalar axpy_32:  mulss  %xmm1,%xmm0
+                 addss  (%rcx,%rdx,1),%xmm0
+native axpy_32:  vfmadd213ps (%rcx,%rdx,1),%ymm2,%ymm0
+native dp_32:    vmulps (%rcx,%rdx,1),%ymm1,%ymm1    then  vaddss %xmm1,%xmm0,%xmm0  (×8)</code></pre>
+  <div class="analysis">
+    <p>For scalar AXPY, the compiler uses <code>mulss</code> and <code>addss</code>: the <code>ss</code> versions of the instructions handle one element at a time. When the loop is vectorized, the native build uses the special vector instruction <code>vfmadd213ps</code> instead, which also does the multiply and the add together in one instruction (FMA). It uses <code>ymm0</code>, <code>ymm1</code> and <code>ymm2</code>, which are 32-byte vector registers, so each instruction works on 8 floats (or 4 doubles) at once. The compiler report confirms 32-byte vectors for native and 16-byte vectors (4 floats) for auto. No masking is used (AVX2 has no mask registers like AVX-512), so the leftover elements at the end of the array are handled by a scalar loop.</p>
+  </div>
+</section>
+
+<section id="sizes">
+  <h2>5. Scalar vs SIMD across sizes</h2>
+  <span class="pts">Required: speedup and achieved throughput for each kernel</span>
+  <figure>
+    <img src="speedup.png" alt="Speedup over scalar for each kernel">
+    <figcaption><b>Figure 1.</b> Speedup of auto and native builds over scalar.</figcaption>
+  </figure>
+  <figure>
+    <img src="gflops.png" alt="GFLOP/s for each kernel">
+    <figcaption><b>Figure 2.</b> Achieved throughput (GFLOP/s).</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Best case: AXPY float native <b>5.48×</b> at n = 4K (16.5 GFLOP/s)</li>
+    <li>Native beats auto in L1: AXPY float 5.48× vs 2.97×</li>
+  </ul>
+  <div class="analysis">
+    <p>In most cases my hypothesis is correct: the vectorized builds are faster than scalar, and native is often the fastest. It beats auto (AXPY float in L1: 5.48× vs 2.97×) because it uses 256-bit AVX2 vectors with FMA instead of 128-bit SSE.</p>
+    <p>Notably, the gap is largest in the L1 regime. When the data fits in L1 it arrives quickly, so the computation is the bottleneck, and doing 8 operations per instruction helps a lot. With bigger and bigger data, the time is spent waiting for the data to arrive, so vectorization can only help so much relative to how much data there is. The exception is the dot product, which gets no speedup at all (section 12).</p>
+  </div>
+</section>
+
+<section id="locality">
+  <h2>6. Locality: SIMD gain compresses</h2>
+  <span class="pts">20 pts · Locality and memory-bound analysis</span>
+  <figure>
+    <img src="speedup_axpy_f32.png" alt="AXPY float speedup vs problem size">
+    <figcaption><b>Figure 3.</b> AXPY float speedup over scalar across L1, L2, L3 and DRAM.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Native speedup: 5.48× (L1) → 2.78× (n = 64K) → 1.49× (n = 16M, DRAM)</li>
+    <li>Scalar time per element: 0.66 ns (L1) → 0.84 ns (DRAM)</li>
+  </ul>
+  <div class="analysis">
+    <p>This is a continuation of section 5. The speedup drops from 5.48× in L1 to 2.78× at n = 64K, and to 1.49× once the arrays are past the L3 line and in DRAM. With this much data, the bottleneck comes from waiting for memory to transfer it all, not from how fast the computation can be done. Both builds spend most of their time waiting, so the extra vector lanes help less and less.</p>
+  </div>
+</section>
+
+<section id="dtype">
+  <h2>7. Data type: float vs double</h2>
+  <span class="pts">Required: data-type comparison</span>
+  <div class="grid2">
+    <figure>
+      <img src="speedup_axpy_f32.png" alt="AXPY float speedup">
+      <figcaption><b>Figure 4a.</b> AXPY float32.</figcaption>
+    </figure>
+    <figure>
+      <img src="speedup_axpy_f64.png" alt="AXPY double speedup">
+      <figcaption><b>Figure 4b.</b> AXPY float64.</figcaption>
+    </figure>
+  </div>
+  <ul class="facts">
+    <li>L1 speedup, float vs double: AXPY 5.48× vs 2.75×; mul 3.68× vs 2.05× (ratio ≈ 2)</li>
+    <li>DRAM speedup, float vs double: AXPY 1.49× vs 1.18×</li>
+  </ul>
+  <div class="analysis">
+    <p>As my hypothesis expected, the trend is the same for both types: the speedup is largest in L1 and drops as n grows. However, the size of the effect is not the same, so that part of my hypothesis was wrong. In L1 the float speedup is about twice the double speedup (AXPY 5.48× vs 2.75×), because a 32-byte vector register holds 8 floats but only 4 doubles, so each instruction does twice as much work for float.</p>
+    <p>In DRAM the float speedup is still greater (1.49× vs 1.18×). A float is only 32 bits, so for the same number of operations there is half as much data to wait for.</p>
+  </div>
+</section>
+
+<section id="align">
+  <h2>8. Alignment</h2>
+  <span class="pts">20 pts · Alignment, tail, stride/gather studies</span>
+  <figure>
+    <img src="align.png" alt="Time relative to aligned vs offset in bytes">
+    <figcaption><b>Figure 5.</b> AXPY float, n = 4096 (L1): time relative to 64-byte-aligned arrays.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Native in L1: <b>+16%</b> at offsets of 4, 8 and 16 B; no penalty at 32 or 64 B. Scalar unaffected.</li>
+    <li>Native in DRAM (n = 16M, <code>align.csv</code>, not plotted): within ±2% at every offset</li>
+  </ul>
+  <div class="analysis">
+    <p>Offsets that aren't multiples of 32 bytes (4, 8 and 16 B) make native about 16% slower in L1, while offsets of 32 and 64 B have no penalty. With those offsets, some 32-byte vector loads are split across two cache lines, so one vector load needs two memory accesses. Scalar doesn't care, since it isn't using vectors in the first place: it loads one 4-byte element at a time, so there is nothing to split.</p>
+    <p>In DRAM (n = 16M) the offset makes no difference (within ±2%), because the time spent waiting for memory hides the extra accesses.</p>
+  </div>
+</section>
+
+<section id="tail">
+  <h2>9. Tail handling</h2>
+  <span class="pts">20 pts · Alignment, tail, stride/gather studies</span>
+  <figure>
+    <img src="tail.png" alt="Time relative to n=1024 for n from 1024 to 1040">
+    <figcaption><b>Figure 6.</b> AXPY float, n = 1024…1040: time relative to n = 1024 (no leftover elements).</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Scalar: grows smoothly to 1.016× (just more elements)</li>
+    <li>Native: swings between 0.94× and 1.04×, repeating every ~8 elements</li>
+  </ul>
+  <div class="analysis">
+    <p>With a tail, n isn't a multiple of 8, so the last few elements don't fill a whole vector and can't be vectorized easily. These leftover elements are done one at a time by a scalar loop at the end, which is why the native times move up and down in a pattern that repeats about every 8 elements. The effect is small (within about ±6%) because at n ≈ 1000 there are at most 7 leftover elements against more than 1000 vectorized ones. Scalar again doesn't care: it handles every element the same way, so its time just grows smoothly with n.</p>
+  </div>
+</section>
+
+<section id="stride">
+  <h2>10. Stride</h2>
+  <span class="pts">20 pts · Alignment, tail, stride/gather studies</span>
+  <figure>
+    <img src="stride.png" alt="Time per element vs stride">
+    <figcaption><b>Figure 7.</b> AXPY float, n = 65536: x read with stride s, time per element processed.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>n = 64K: native speedup falls 2.83× (stride 1) → 1.18× (stride ≥ 16)</li>
+    <li>n = 16M (DRAM, <code>stride.csv</code>, not plotted): 1.59× → 1.03× (stride 8) → <b>0.75×</b> (stride 16): native slower than scalar</li>
+  </ul>
+  <div class="analysis">
+    <p>Stride means the elements the loop needs aren't next to each other in memory, so the vector load can't be contiguous, and fewer of the numbers in each 64-byte cache line are actually used. For scalar the same is true: its accesses are more spread out, which makes each element take longer.</p>
+    <p>The vector speedup does not stay the same, though. At n = 64K it falls from 2.83× at stride 1 to 1.18× at stride 16 and above, because native loses its advantage of loading 8 neighbouring floats at once. From stride 16 on, every element sits on its own cache line (16 floats × 4 B = 64 B), so both builds are limited by memory accesses. In DRAM, native even ends up slower than scalar at stride 16 (0.75×).</p>
+  </div>
+</section>
+
+<section id="roofline">
+  <h2>11. Roofline (AXPY float, n = 16,777,216)</h2>
+  <span class="pts">20 pts · Roofline and quantitative insight</span>
+  <figure>
+    <img src="roofline.png" alt="Roofline plot with scalar and native AXPY points">
+    <figcaption><b>Figure 8.</b> Roofline from measured peak and measured bandwidth; fastest of 3 reps.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <tr><th>Quantity</th><th>Source</th><th class="num">Value</th></tr>
+    <tr><td>P<sub>peak</sub></td><td><code>peak.csv</code>: 128,000,000 FLOPs ÷ 0.00175052 s</td><td class="num">73.1 GFLOP/s</td></tr>
+    <tr><td>b<sub>s</sub></td><td><code>sweep.csv</code> mul float: 16 × 16,777,216 B ÷ 0.01234875 s</td><td class="num">21.7 GB/s</td></tr>
+    <tr><td>I</td><td>AXPY: 2 FLOPs ÷ 12 bytes</td><td class="num">0.167 FLOP/B</td></tr>
+    <tr><td>Ridge point</td><td>P<sub>peak</sub> ÷ b<sub>s</sub></td><td class="num">3.4 FLOP/B</td></tr>
+    <tr><td>Predicted P</td><td>min(73.1, 0.167 × 21.7)</td><td class="num">3.62 GFLOP/s</td></tr>
+    <tr><td>Scalar AXPY</td><td>2 × 16,777,216 ÷ 0.014077688 s</td><td class="num">2.38 GFLOP/s (66%)</td></tr>
+    <tr><td>Native AXPY</td><td>2 × 16,777,216 ÷ 0.009423813 s</td><td class="num">3.56 GFLOP/s (98%)</td></tr>
+  </table></div>
+  <ul class="facts">
+    <li>Theoretical peak: 2.3 GHz × 2 FMA units × 8 float lanes × 2 FLOPs = 73.6 GFLOP/s; measured 73.1 (99%)</li>
+    <li>Mul moves 16 B per element: read x (4) + read y (4) + write z (4) + write-allocate read of z (4). AXPY moves 12 B because y is read and written in the same line.</li>
+  </ul>
+  <div class="analysis">
+    <p>AXPY's arithmetic intensity (0.167 FLOP/byte) is far below the ridge point (3.4 FLOP/byte), so AXPY is memory-bound. The native build is already using 98% of the memory roof (3.56 of 3.62 GFLOP/s), so wider SIMD wouldn't help much: the speed is limited by memory bandwidth, not computation. Scalar reaches 66% of the roof.</p>
+  </div>
+</section>
+
+<section id="negative">
+  <h2>12. Negative example: dot product</h2>
+  <span class="pts">10 pts · AI-use transparency and failure case</span>
+  <figure>
+    <img src="speedup_dot_f32.png" alt="Dot product float speedup, about 1x everywhere">
+    <figcaption><b>Figure 9.</b> Dot product float: speedup ≈ 1.00× at every size, in both auto and native.</figcaption>
+  </figure>
+<pre><code>simd.c:54:23: optimized: loop vectorized using 32 byte vectors    (compiler says: vectorized)
+native dp_32:  vmulps (%rcx,%rdx,1),%ymm1,%ymm1               (8 multiplies at once)
+               vaddss %xmm1,%xmm0,%xmm0                        (adds: one at a time, ×8)</code></pre>
+  <div class="analysis">
+    <p>Interestingly, the dot product gets no speedup (about 1.00×) at any n, even though the compiler reports the loop as vectorized. This is misleading: from the compiler report alone you would think the vector version is faster, but it isn't.</p>
+    <p>The disassembly shows why. The multiplies are vectorized (<code>vmulps</code>, 8 at once), but the additions are still done one at a time (<code>vaddss</code>). Floating-point addition isn't associative, so without <code>-ffast-math</code> gcc has to add the numbers in the original order, and the sum stays a chain of one-by-one additions.</p>
+  </div>
+</section>
+
+<section id="limits">
+  <h2>13. Limitations</h2>
+  <ul>
+    <li><code>clock()</code> resolution (handled by repeating many calls); one machine; single core only</li>
+    <li><code>powersave</code> governor (no turbo on this CPU, and the measured peak matches 2.3 GHz)</li>
+    <li>3 reps per point</li>
+  </ul>
+</section>
+
+<section id="ai">
+  <h2>14. AI-use note</h2>
+  <span class="pts">10 pts · AI-use transparency</span>
+  <div class="analysis">
+    <p>AI use for all three projects is described in one shared note: <a href="../AI_USE_NOTES.md"><code>AI_USE_NOTES.md</code></a> at the top of the repository.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

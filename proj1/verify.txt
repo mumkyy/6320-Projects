@@ -1,0 +1,51 @@
+== Compiler report: which loops were vectorized
+simd.c:27:23: optimized: loop vectorized using 32 byte vectors
+simd.c:27:23: optimized:  loop versioned for vectorization because of possible aliasing
+simd.c:27:23: optimized: loop vectorized using 16 byte vectors
+simd.c:27:23: optimized: loop vectorized using 32 byte vectors
+simd.c:27:23: optimized:  loop versioned for vectorization because of possible aliasing
+simd.c:27:23: optimized: loop vectorized using 16 byte vectors
+simd.c:39:23: optimized: loop vectorized using 32 byte vectors
+simd.c:39:23: optimized:  loop versioned for vectorization because of possible aliasing
+simd.c:39:23: optimized: loop vectorized using 16 byte vectors
+simd.c:39:23: optimized: loop vectorized using 32 byte vectors
+simd.c:39:23: optimized:  loop versioned for vectorization because of possible aliasing
+simd.c:39:23: optimized: loop vectorized using 16 byte vectors
+simd.c:54:23: optimized: loop vectorized using 32 byte vectors
+simd.c:54:23: optimized: loop vectorized using 16 byte vectors
+simd.c:68:23: optimized: loop vectorized using 32 byte vectors
+simd.c:68:23: optimized: loop vectorized using 16 byte vectors
+simd.c:80:23: optimized: loop vectorized using 32 byte vectors
+simd.c:80:23: optimized:  loop versioned for vectorization because of possible aliasing
+simd.c:80:23: optimized: loop vectorized using 16 byte vectors
+simd.c:91:23: optimized: loop vectorized using 32 byte vectors
+simd.c:91:23: optimized:  loop versioned for vectorization because of possible aliasing
+simd.c:91:23: optimized: loop vectorized using 16 byte vectors
+simd.c:102:27: optimized: loop vectorized using 32 byte vectors
+simd.c:102:27: optimized: loop vectorized using 32 byte vectors
+simd.c:7:21: optimized: loop vectorized using 32 byte vectors
+simd.c:7:21: optimized: loop vectorized using 16 byte vectors
+simd.c:14:21: optimized: loop vectorized using 32 byte vectors
+simd.c:14:21: optimized: loop vectorized using 16 byte vectors
+simd.c:14:21: optimized: loop vectorized using 32 byte vectors
+simd.c:14:21: optimized: loop vectorized using 16 byte vectors
+simd.c:14:21: optimized: loop vectorized using 32 byte vectors
+simd.c:14:21: optimized: loop vectorized using 16 byte vectors
+simd.c:14:21: optimized: loop vectorized using 32 byte vectors
+simd.c:14:21: optimized: loop vectorized using 16 byte vectors
+simd.c:7:21: optimized: loop vectorized using 32 byte vectors
+simd.c:7:21: optimized: loop vectorized using 16 byte vectors
+simd.c:7:21: optimized: loop vectorized using 32 byte vectors
+simd.c:7:21: optimized: loop vectorized using 16 byte vectors
+simd.c:7:21: optimized: loop vectorized using 32 byte vectors
+simd.c:7:21: optimized: loop vectorized using 16 byte vectors
+== axpy_32, scalar build (expect mulss/addss)
+    18c6:	f3 0f 59 c1          	mulss  %xmm1,%xmm0
+    18ca:	f3 0f 58 04 11       	addss  (%rcx,%rdx,1),%xmm0
+== axpy_32, native build (expect vfmadd...ps on ymm)
+    2020:	c5 fc 10 04 16       	vmovups (%rsi,%rdx,1),%ymm0
+    2025:	c4 e2 6d a8 04 11    	vfmadd213ps (%rcx,%rdx,1),%ymm2,%ymm0
+== dp_32, native build (multiply is vmulps, but adds are vaddss = one at a time)
+    2746:	c5 f4 59 0c 11       	vmulps (%rcx,%rdx,1),%ymm1,%ymm1
+    274f:	c5 fa 58 c1          	vaddss %xmm1,%xmm0,%xmm0
+    275d:	c5 fa 58 c3          	vaddss %xmm3,%xmm0,%xmm0

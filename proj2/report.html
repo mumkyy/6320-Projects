@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project 2: Cache &amp; Memory Performance Profiling</title>
+<!-- Images are the PNGs in this folder (made by analyze.py); keep this file next to them. -->
+<style>
+  :root { --ink: #1d1f23; --muted: #5d6470; --line: #d9dde3; --soft: #f4f6f8; --accent: #2d5b9a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 16px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 940px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 24px; }
+  header h1 { margin: 0 0 4px; font-size: 2rem; line-height: 1.2; }
+  header p { margin: 0; color: var(--muted); }
+  h2 { font-size: 1.4rem; margin: 48px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .pts { display: inline-block; font-size: 0.8rem; color: var(--accent); background: #e8eff8; border-radius: 12px; padding: 2px 10px; margin-bottom: 12px; }
+  figure { margin: 16px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; break-inside: avoid; }
+  figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 8px; }
+  ul.facts { background: var(--soft); border-radius: 8px; padding: 12px 16px 12px 36px; margin: 12px 0; }
+  ul.facts li { margin: 2px 0; }
+  .table-wrap { overflow-x: auto; margin: 12px 0; }
+  table { border-collapse: collapse; font-size: 0.93rem; min-width: 60%; }
+  th, td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+  p code, li code, td code { background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  .fill { background: #fff8db; border: 1px dashed #d9a400; border-radius: 8px; padding: 10px 16px; margin: 16px 0; }
+  .fill .hint { color: #7a5c00; font-size: 0.92rem; margin: 0 0 6px; }
+  .fill .hint ul { margin: 4px 0; padding-left: 20px; }
+  .analysis { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; margin: 16px 0; }
+  @media (max-width: 640px) { header h1 { font-size: 1.6rem; } }
+  @media print { .fill .hint { display: none; } .fill { background: none; border: none; padding: 0; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Project 2: Cache &amp; Memory Performance Profiling</h1>
+  <p>ECSE 4320/6320 Advanced Computer Systems · Intel Core i3-6100U · Intel MLC v3.13 + perf</p>
+</header>
+
+<section id="setup">
+  <h2>1. Setup and methodology</h2>
+  <span class="pts">25 pts · Experimental rigor</span>
+  <div class="table-wrap"><table>
+    <tr><th>CPU</th><td>Intel Core i3-6100U @ 2.3 GHz, 2 cores / 4 threads, 1 socket, 1 NUMA node</td></tr>
+    <tr><th>Caches</th><td>L1d 32 KiB and L2 256 KiB per core; L3 3 MiB shared</td></tr>
+    <tr><th>Memory / OS</th><td>10 GiB; Ubuntu, Linux 6.11.0-29-generic; gcc 14.2.0</td></tr>
+    <tr><th>Tools</th><td>Intel MLC v3.13; <code>perf</code>; own kernels in <code>simd.c</code> (AXPY, random pointer chase)</td></tr>
+    <tr><th>Frequency / SMT / pages</th><td>Governor <code>powersave</code> (no turbo on this CPU); SMT on; THP default <code>madvise</code></td></tr>
+    <tr><th>Pinning</th><td>Own kernels pinned to core 2 (<code>taskset</code>); MLC places its own threads</td></tr>
+    <tr><th>Repetitions</th><td><code>perf</code> runs: 3 reps (mean ± std); MLC averages internally, 1 run per setting</td></tr>
+    <tr><th>Sanity check</th><td>My own random pointer chase (16 MB, 4 KB pages) takes 99.5 ns per access, close to MLC's DRAM latency of 103.6 ns</td></tr>
+    <tr><th>Prefetchers</th><td>MLC couldn't disable them (kernel lockdown), so latency tests use random access (<code>-r</code>)</td></tr>
+  </table></div>
+</section>
+
+<section id="hypothesis">
+  <h2>2. Hypothesis</h2>
+  <ul>
+    <li>Latency will increase as the working set grows past each cache level, because by the memory hierarchy, bigger memory is slower</li>
+    <li>DRAM bandwidth should be similar across access patterns, because there are no cache misses to worry about once everything comes from DRAM, and DRAM is made for random access</li>
+    <li>Throughput and latency will get worse with more accesses, because the memory can only deliver so much (a speed limit)</li>
+    <li>I wasn't sure what to expect for the read/write mixes or for huge pages</li>
+  </ul>
+</section>
+
+<section id="zero-queue">
+  <h2>3. Zero-queue latency and working-set sweep</h2>
+  <span class="pts">25 pts · Zero-queue baselines</span>
+  <figure>
+    <img src="fig1_working_set.png" alt="Idle latency vs buffer size, log-log, with L1 L2 L3 boundaries">
+    <figcaption><b>Figure 1.</b> Idle latency vs buffer size (random access). Dashed lines: L1, L2, L3 sizes. Right axis: cycles at 2.3 GHz.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <tr><th>Level</th><th>Buffer used</th><th class="num">Latency (ns)</th><th class="num">Cycles</th></tr>
+    <tr><td>L1</td><td>8–32 KiB</td><td class="num">1.8</td><td class="num">4.0</td></tr>
+    <tr><td>L2</td><td>64–128 KiB</td><td class="num">5.3</td><td class="num">12.1</td></tr>
+    <tr><td>L3</td><td>1 MiB</td><td class="num">16.8</td><td class="num">38.7</td></tr>
+    <tr><td>DRAM</td><td>32–100 MiB</td><td class="num">103.6</td><td class="num">238.8</td></tr>
+  </table></div>
+  <div class="analysis">
+    <p>The buffer sizes go from 8 KiB to about 100 MiB, and they show well how the latency changes across scales. Points right at a cache boundary are a mix of two levels, so for the table I used sizes well inside each level.</p>
+  </div>
+</section>
+
+<section id="pattern">
+  <h2>4. Pattern and granularity sweep</h2>
+  <span class="pts">35 pts · Pattern, granularity and read/write sweeps</span>
+  <figure>
+    <img src="fig2_pattern.png" alt="Idle latency and max bandwidth for random, sequential and strided access">
+    <figcaption><b>Figure 2.</b> DRAM-sized buffer (~100 MiB): idle latency (blue) and max bandwidth (red) per access pattern.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Sequential: 7.6 ns, 14.8 GB/s · Random: 103.6 ns, 5.5 GB/s</li>
+    <li>Stride 256 B → 1024 B: latency 39.6 → 56.9 ns; bandwidth 4.9 → 3.6 GB/s</li>
+  </ul>
+  <div class="analysis">
+    <p>My hypothesis was wrong: different access patterns are slower or faster because of the prefetcher, which can help in simple patterns like sequential access. Random access gets no help from it, so it is the slowest.</p>
+  </div>
+</section>
+
+<section id="rwmix">
+  <h2>5. Read/write mix</h2>
+  <span class="pts">35 pts · Pattern, granularity and read/write sweeps</span>
+  <figure>
+    <img src="fig3_rwmix_bw.png" alt="Peak bandwidth for each read/write ratio">
+    <figcaption><b>Figure 3.</b> Peak bandwidth by read/write ratio (latency for each mix is in Figure 4).</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Peak bandwidth: 100% read 26.2 GB/s; every mix with writes 22.6–22.9 GB/s</li>
+    <li>Latency at max load: 100% read 90.7 ns · 1:1 134.2 ns · 100% write 164.3 ns · 2:1 218.6 ns</li>
+    <li>2:1 (67/33) is MLC's closest mix to 70/30; 100% write uses non-temporal stores (<code>-W6</code>)</li>
+  </ul>
+  <div class="analysis">
+    <p>The bandwidth looks about the same for all the mixes except all reads, which is higher. All reads also has the lowest latency, so writes may be more costly than reads.</p>
+  </div>
+</section>
+
+<section id="knee">
+  <h2>6. Intensity sweep: throughput–latency knee</h2>
+  <span class="pts">35 pts · Throughput–latency knee</span>
+  <figure>
+    <img src="fig4_loaded_latency.png" alt="Loaded latency vs bandwidth for four read/write mixes">
+    <figcaption><b>Figure 4.</b> Loaded latency vs bandwidth as injection delay drops, for each read/write mix.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>100% read: latency flat at ~76 ns up to ~3 GB/s; knee between 8.1 GB/s (80.9 ns) and 15.0 GB/s (88.4 ns)</li>
+    <li>Little's Law at max load: 14.8 GB/s × 90.7 ns ÷ 64 B ≈ <b>21 cache lines in flight</b></li>
+  </ul>
+  <div class="analysis">
+    <p>Latency stays flat at first, then goes up at the knee while the bandwidth stops growing. By Little's Law, about 21 cache lines are in flight at the maximum. The bandwidth probably stops growing because the cores cannot keep more misses in flight than that.</p>
+  </div>
+</section>
+
+<section id="cache-miss">
+  <h2>7. Cache-miss impact</h2>
+  <span class="pts">35 pts · Working-set, cache and TLB analysis</span>
+  <figure>
+    <img src="fig5_axpy_misses.png" alt="AXPY time per element and LLC misses per element vs working set">
+    <figcaption><b>Figure 5.</b> AXPY float (native): time per element (blue) and LLC-load-misses per element (red) vs working set; 3 reps.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Time steps: L1 → L2 0.12 → 0.17 ns/element; L3 → DRAM 0.26 → 0.48 ns/element</li>
+    <li>LLC misses jump ~27× (0.0008 → 0.0215 per element) at the DRAM step</li>
+  </ul>
+  <div class="analysis">
+    <p>The more misses, the more time per element, specifically past L3, which makes sense since that's when there are cache misses to DRAM. Each miss costs a DRAM access (~100 ns) instead of an L3 hit (~17 ns).</p>
+  </div>
+</section>
+
+<section id="tlb">
+  <h2>8. TLB-miss impact</h2>
+  <span class="pts">35 pts · Working-set, cache and TLB analysis</span>
+  <figure>
+    <img src="fig6_tlb.png" alt="Random chase latency per access, 4 KB pages vs huge pages">
+    <figcaption><b>Figure 6.</b> Random pointer chase, 4 KB pages (THP <code>never</code>) vs huge pages (THP <code>always</code>).</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <tr><th>Buffer</th><th>Pages</th><th class="num">ns/access</th><th class="num">dTLB-load-misses</th><th class="num">LLC-load-misses</th></tr>
+    <tr><td>16 MB</td><td>4 KB</td><td class="num">99.5 ± 2.7</td><td class="num">3.5 × 10⁷</td><td class="num">4.8 × 10⁷</td></tr>
+    <tr><td>16 MB</td><td>huge</td><td class="num">91.3 ± 0.1</td><td class="num">8.9 × 10³</td><td class="num">4.8 × 10⁷</td></tr>
+    <tr><td>128 MB</td><td>4 KB</td><td class="num">117.7 ± 0.3</td><td class="num">1.2 × 10⁸</td><td class="num">1.3 × 10⁸</td></tr>
+    <tr><td>128 MB</td><td>huge</td><td class="num">112.8 ± 1.5</td><td class="num">1.9 × 10⁴</td><td class="num">1.3 × 10⁸</td></tr>
+  </table></div>
+  <div class="analysis">
+    <p>Huge pages remove almost all TLB misses, but the time only drops 4–8%, since every access in the chase still has to go to DRAM.</p>
+  </div>
+</section>
+
+<section id="pitfall">
+  <h2>9. Benchmark pitfall: prefetching</h2>
+  <span class="pts">15 pts · AI-use transparency and pitfall analysis</span>
+  <ul class="facts">
+    <li>Same 100 MiB buffer (Figure 2, first two bars): sequential "latency" <b>7.6 ns</b> vs random <b>103.6 ns</b></li>
+  </ul>
+  <div class="analysis">
+    <p>With sequential access, the prefetcher brings the data in early, so the test measures cache hits instead of DRAM and looks about 14× faster than it really is. That's why the latency tests use random access (<code>-r</code>).</p>
+  </div>
+</section>
+
+<section id="limits">
+  <h2>10. Limitations</h2>
+  <ul>
+    <li>2-core laptop: few threads to generate load, so the knee is shallow</li>
+    <li>Prefetchers couldn't be disabled</li>
+    <li>MLC run once per setting; <code>perf</code> counts include setup code</li>
+  </ul>
+</section>
+
+<section id="ai">
+  <h2>11. AI-use note</h2>
+  <span class="pts">15 pts · AI-use transparency</span>
+  <div class="analysis">
+    <p>AI use for all three projects is described in one shared note: <a href="../AI_USE_NOTES.md"><code>AI_USE_NOTES.md</code></a> at the top of the repository.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

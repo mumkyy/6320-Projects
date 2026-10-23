@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project 3: SSD Performance Profiling</title>
+<!-- Images are the PNGs in this folder (made by analyze.py); keep this file next to them. -->
+<style>
+  :root { --ink: #1d1f23; --muted: #5d6470; --line: #d9dde3; --soft: #f4f6f8; --accent: #2d5b9a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 16px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 940px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 24px; }
+  header h1 { margin: 0 0 4px; font-size: 2rem; line-height: 1.2; }
+  header p { margin: 0; color: var(--muted); }
+  h2 { font-size: 1.4rem; margin: 48px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .pts { display: inline-block; font-size: 0.8rem; color: var(--accent); background: #e8eff8; border-radius: 12px; padding: 2px 10px; margin-bottom: 12px; }
+  figure { margin: 16px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; break-inside: avoid; }
+  figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 8px; }
+  ul.facts { background: var(--soft); border-radius: 8px; padding: 12px 16px 12px 36px; margin: 12px 0; }
+  ul.facts li { margin: 2px 0; }
+  .table-wrap { overflow-x: auto; margin: 12px 0; }
+  table { border-collapse: collapse; font-size: 0.93rem; min-width: 60%; }
+  th, td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+  p code, li code, td code { background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  .fill { background: #fff8db; border: 1px dashed #d9a400; border-radius: 8px; padding: 10px 16px; margin: 16px 0; }
+  .fill .hint { color: #7a5c00; font-size: 0.92rem; margin: 0 0 6px; }
+  .fill .hint ul { margin: 4px 0; padding-left: 20px; }
+  .analysis { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; margin: 16px 0; }
+  @media (max-width: 640px) { header h1 { font-size: 1.6rem; } }
+  @media print { .fill .hint { display: none; } .fill { background: none; border: none; padding: 0; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Project 3: SSD Performance Profiling</h1>
+  <p>ECSE 4320/6320 Advanced Computer Systems · SATA SSD · fio 3.37</p>
+</header>
+
+<section id="setup">
+  <h2>1. Setup and methodology</h2>
+  <span class="pts">30 + 25 pts · Safety · Reproducibility and data hygiene</span>
+  <div class="table-wrap"><table>
+    <tr><th>SSD</th><td>SATA SSD, 223.6 GB (<code>sda</code>); SATA interface (~550–600 MB/s limit, NCQ queue depth 32)</td></tr>
+    <tr><th>Safety</th><td>Tests run on a 16 GB file (<code>testfile</code>, ~7% of the drive) on ext4/LVM, never the raw device, so no existing data is at risk</td></tr>
+    <tr><th>I/O settings</th><td>fio 3.37, <code>libaio</code>, <code>--direct=1</code> (bypasses page cache) for every test except the pitfall; random offsets aligned to block size</td></tr>
+    <tr><th>Data pattern</th><td>Incompressible (<code>--refill_buffers</code>, fresh random data every write)</td></tr>
+    <tr><th>Preconditioning</th><td>Whole 16 GB file written once sequentially (1 MiB, QD 32) before the tests</td></tr>
+    <tr><th>Runs</th><td>15 s + 2 s ramp; 3 reps (mean ± std), except the preconditioning fill and the 10-minute write (1 run each); <code>numjobs=1</code>, parallelism through <code>iodepth</code></td></tr>
+    <tr><th>Sanity checks</th><td>The QD 1 baseline and the QD 1 point of the queue-depth sweep agree (5,985 vs 5,927 IOPS); IOPS × latency = queue depth (Little's Law) at every point</td></tr>
+    <tr><th>Host</th><td>Intel Core i3-6100U; Ubuntu, Linux 6.11.0-29-generic</td></tr>
+    <tr><th>Temperature</th><td>Not available on this drive</td></tr>
+  </table></div>
+</section>
+
+<section id="hypothesis">
+  <h2>2. Hypothesis</h2>
+  <ul>
+    <li>Writes will be slower than reads, because the drive has to make sure the data is actually written</li>
+    <li>Bigger blocks will give more MB/s, because each request passes more data at the same time</li>
+    <li>More requests at once will help, up until the number of requests maxes out the SSD's bandwidth</li>
+  </ul>
+</section>
+
+<section id="qd1">
+  <h2>3. Zero-queue (QD = 1) baselines</h2>
+  <span class="pts">30 pts · Safety and zero-queue baselines</span>
+  <figure>
+    <img src="fig1_qd1.png" alt="p50, p95 and p99 latency at QD 1 for four tests plus buffered reads">
+    <figcaption><b>Figure 1.</b> QD = 1 completion latency (p50 / p95 / p99, log scale); last group is the buffered-I/O pitfall (section 9).</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <tr><th>Test</th><th class="num">IOPS</th><th class="num">p50 (µs)</th><th class="num">p95</th><th class="num">p99</th><th class="num">p99.9</th></tr>
+    <tr><td>4K random read</td><td class="num">5,985 ± 1,120</td><td class="num">123</td><td class="num">273</td><td class="num">338</td><td class="num">399</td></tr>
+    <tr><td>4K random write</td><td class="num">18,842 ± 255</td><td class="num">35</td><td class="num">52</td><td class="num">57</td><td class="num">198</td></tr>
+    <tr><td>128K sequential read</td><td class="num">1,775 ± 42</td><td class="num">446</td><td class="num">580</td><td class="num">668</td><td class="num">1,330</td></tr>
+    <tr><td>128K sequential write</td><td class="num">1,200 ± 79</td><td class="num">544</td><td class="num">668</td><td class="num">725</td><td class="num">7,406</td></tr>
+  </table></div>
+  <div class="analysis">
+    <p>Interestingly, writes are sometimes faster than reads (4K writes 35 µs vs 4K reads 123 µs), so I was wrong about my hypothesis. This could be because the drive puts writes in a fast cache first.</p>
+  </div>
+</section>
+
+<section id="block-size">
+  <h2>4. Block-size sweep</h2>
+  <span class="pts">35 pts · Block-size and pattern sweeps</span>
+  <figure>
+    <img src="fig2_block_size.png" alt="Throughput and mean latency vs block size for random and sequential reads">
+    <figcaption><b>Figure 2.</b> QD 32 reads: throughput (solid, left) and mean latency (dashed, right) from the same runs.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Small-block limit: 4K random read 62,815 IOPS (257 MB/s)</li>
+    <li>Sequential tops out at <b>381 MB/s</b> from 128K up</li>
+    <li>Mean latency: ~0.5 ms at 4K → 22–31 ms at 256K</li>
+  </ul>
+  <div class="analysis">
+    <p>A bigger block size helps throughput for a normal sequential read, up to a limit of about 381 MB/s. For random reads it only helps up to 32K and then drops. The latency goes up in general, because each request carries more data.</p>
+  </div>
+</section>
+
+<section id="rwmix">
+  <h2>5. Read/write mix</h2>
+  <span class="pts">40 pts · Read/write and queue-depth analysis</span>
+  <figure>
+    <img src="fig3_rwmix.png" alt="Stacked read and write IOPS for 100, 70, 50 and 0 percent reads">
+    <figcaption><b>Figure 3.</b> 4K random, QD 32: read and write IOPS by read percentage.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Total IOPS: 100% read 54.1K · 70% 20.9K · 50% 17.0K · 0% read 54.5K</li>
+    <li>Mean latency at 70% reads: reads 1,138 µs, writes 2,456 µs (vs ~590 µs for either pure workload)</li>
+  </ul>
+  <div class="analysis">
+    <p>Pure reads and pure writes are more or less the same, not much different in I/O operations. Mixing them is a lot slower though, with about 3× fewer IOPS.</p>
+  </div>
+</section>
+
+<section id="qd">
+  <h2>6. Queue-depth sweep and knee</h2>
+  <span class="pts">40 pts · Read/write and queue-depth analysis</span>
+  <figure>
+    <img src="fig4_qd_knee.png" alt="Mean latency vs IOPS for QD 1 to 256">
+    <figcaption><b>Figure 4.</b> 4K random read: mean latency vs IOPS, QD 1 → 256.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Knee at QD 32–64: IOPS stops at ~66K; after that latency doubles with each doubling of QD (961 → 1,957 → 3,891 µs)</li>
+    <li>Little's Law, L = IOPS × mean latency: QD 32 → 57,549 × 555 µs = 32.0; QD 256 → 65,767 × 3,891 µs = 255.9 (matches QD at every point)</li>
+  </ul>
+  <div class="analysis">
+    <p>More requests at once help until about QD 32–64, where IOPS stops at about 66K (the knee). After that the requests just wait in line, so latency keeps going up, probably because SATA only takes 32 requests at a time. Little's Law (IOPS × latency = queue depth) matches the data at every point.</p>
+  </div>
+</section>
+
+<section id="tail">
+  <h2>7. Tail latency</h2>
+  <span class="pts">25 pts · Tail latency and device state</span>
+  <figure>
+    <img src="fig5_tail.png" alt="p50, p95, p99 and p99.9 latency vs queue depth">
+    <figcaption><b>Figure 5.</b> 4K random read: p50 / p95 / p99 / p99.9 vs queue depth.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Mid QD (16): p50 418 · p99 771 · p99.9 834 µs (p99.9/p50 = 2.0×)</li>
+    <li>Near knee (32): p50 537 · p99 1,055 · p99.9 1,890 µs (3.5×)</li>
+    <li>Past knee (64): p50 902 · p99 2,288 · p99.9 3,588 µs (4.0×)</li>
+  </ul>
+  <div class="analysis">
+    <p>Bigger queue, more latency for the tail. This makes sense since the tail requests are further and further back in the line.</p>
+  </div>
+</section>
+
+<section id="device-state">
+  <h2>8. Device state and working set</h2>
+  <span class="pts">25 pts · Tail latency and device state</span>
+  <figure>
+    <img src="fig6_long_write.png" alt="Write bandwidth over 10 minutes with periodic spikes">
+    <figcaption><b>Figure 6.</b> 10-minute sequential write (128K, QD 32), bandwidth per second.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li>Mean 281 MB/s; first minute 284 vs last minute 280 MB/s: no cliff (no visible SLC-cache exhaustion)</li>
+    <li>Short bursts to ~400–470 MB/s about every 61 s</li>
+    <li>LBA range: all tests use the same 16 GB range (~7% of the drive)</li>
+  </ul>
+  <div class="analysis">
+    <p>The write speed stayed at about 280 MB/s for the whole 10 minutes, so the drive didn't slow down. There are short spikes about every 61 seconds, and I'm not sure why.</p>
+  </div>
+</section>
+
+<section id="pitfall">
+  <h2>9. Misleading setup: buffered I/O</h2>
+  <span class="pts">15 pts · AI-use transparency and pitfall analysis</span>
+  <div class="table-wrap"><table>
+    <tr><th>4K random read, QD 1</th><th class="num">IOPS</th><th class="num">p50 (µs)</th><th class="num">p99 (µs)</th></tr>
+    <tr><td>Buffered (1 GB file already in RAM, no <code>--direct</code>)</td><td class="num">209,251</td><td class="num">1.7</td><td class="num">1.7</td></tr>
+    <tr><td>Direct I/O (real SSD)</td><td class="num">5,985</td><td class="num">123</td><td class="num">338</td></tr>
+  </table></div>
+  <div class="analysis">
+    <p>Without <code>direct=1</code>, the file was read from RAM instead of the SSD, so it looks about 35× faster than it really is. That's why the other tests use <code>direct=1</code>.</p>
+  </div>
+</section>
+
+<section id="limits">
+  <h2>10. Limitations</h2>
+  <ul>
+    <li>One consumer SATA drive, which is also the OS disk (background I/O possible)</li>
+    <li>Filesystem file, not raw device; 16 GB range only</li>
+    <li>No temperature or SMART data; reads only in the block-size sweep</li>
+  </ul>
+</section>
+
+<section id="ai">
+  <h2>11. AI-use note</h2>
+  <span class="pts">15 pts · AI-use transparency</span>
+  <div class="analysis">
+    <p>AI use for all three projects is described in one shared note: <a href="../AI_USE_NOTES.md"><code>AI_USE_NOTES.md</code></a> at the top of the repository.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

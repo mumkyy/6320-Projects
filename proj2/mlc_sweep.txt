@@ -1,0 +1,118 @@
+
+== buffer 8 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b8 -r 
+
+Using buffer size of 0.008MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 4.0 base frequency clocks (	1.8	ns)
+
+== buffer 16 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b16 -r 
+
+Using buffer size of 0.016MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 4.0 base frequency clocks (	1.8	ns)
+
+== buffer 32 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b32 -r 
+
+Using buffer size of 0.031MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 4.0 base frequency clocks (	1.8	ns)
+
+== buffer 64 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b64 -r 
+
+Using buffer size of 0.062MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 12.1 base frequency clocks (	5.3	ns)
+
+== buffer 128 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b128 -r 
+
+Using buffer size of 0.125MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 12.1 base frequency clocks (	5.3	ns)
+
+== buffer 256 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b256 -r 
+
+Using buffer size of 0.250MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 20.1 base frequency clocks (	8.7	ns)
+
+== buffer 512 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b512 -r 
+
+Using buffer size of 0.500MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 36.6 base frequency clocks (	15.9	ns)
+
+== buffer 1024 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b1024 -r 
+
+Using buffer size of 1.000MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 38.7 base frequency clocks (	16.8	ns)
+
+== buffer 2048 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b2048 -r 
+
+Using buffer size of 2.000MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 55.2 base frequency clocks (	23.9	ns)
+
+== buffer 4096 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b4096 -r 
+
+Using buffer size of 4.000MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 105.5 base frequency clocks (	45.8	ns)
+
+== buffer 8192 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b8192 -r 
+
+Using buffer size of 8.000MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 182.5 base frequency clocks (	79.2	ns)
+
+== buffer 32768 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b32768 -r 
+
+Using buffer size of 32.000MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 238.3 base frequency clocks (	103.4	ns)
+
+== buffer 100000 KiB
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b100000 -r 
+
+Using buffer size of 97.656MiB
+*** Unable to modify prefetchers (try executing 'modprobe msr')
+*** So, enabling random access for latency measurements
+Each iteration took 238.8 base frequency clocks (	103.7	ns)
+

@@ -1,0 +1,34 @@
+
+== stride 64 B
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b100000 -e -l64 
+
+Using buffer size of 97.656MiB
+*** -e leaves the hardware prefetchers as they are, and this run uses a
+*** sequential access pattern. If the prefetchers are enabled, the reported
+*** latency will be a prefetched cache hit rather than a memory latency.
+*** Add -r to use a random access pattern if that is not what you want.
+Each iteration took 17.4 base frequency clocks (	7.6	ns)
+
+== stride 256 B
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b100000 -e -l256 
+
+Using buffer size of 97.656MiB
+*** -e leaves the hardware prefetchers as they are, and this run uses a
+*** sequential access pattern. If the prefetchers are enabled, the reported
+*** latency will be a prefetched cache hit rather than a memory latency.
+*** Add -r to use a random access pattern if that is not what you want.
+Each iteration took 91.2 base frequency clocks (	39.6	ns)
+
+== stride 1024 B
+Intel(R) Memory Latency Checker - v3.13
+Command line parameters: --idle_latency -b100000 -e -l1024 
+
+Using buffer size of 97.656MiB
+*** -e leaves the hardware prefetchers as they are, and this run uses a
+*** sequential access pattern. If the prefetchers are enabled, the reported
+*** latency will be a prefetched cache hit rather than a memory latency.
+*** Add -r to use a random access pattern if that is not what you want.
+Each iteration took 131.2 base frequency clocks (	56.9	ns)
+
